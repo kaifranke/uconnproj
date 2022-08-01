@@ -1,0 +1,204 @@
+library(dplyr)
+library(ggplot2)
+
+
+
+# Changing to have all player locations on each row
+
+pitcher = filter(player_pos, player_position == 1)
+catcher = filter(player_pos, player_position == 2)
+first = filter(player_pos, player_position == 3)
+second = filter(player_pos, player_position == 4)
+third = filter(player_pos, player_position == 5)
+short = filter(player_pos, player_position == 6)
+left = filter(player_pos, player_position == 7)
+center = filter(player_pos, player_position == 8)
+right = filter(player_pos, player_position == 9)
+batter = filter(player_pos, player_position == 10)
+runner1b = filter(player_pos, player_position == 11)
+runner2b = filter(player_pos, player_position == 12)
+runner3b = filter(player_pos, player_position == 13)
+
+
+pitcher = pitcher %>%
+  rename("p_field_x" = "field_x",
+         "p_field_y" = "field_y") %>%
+  select(-player_position)
+
+catcher = catcher %>%
+  rename("c_field_x" = "field_x",
+         "c_field_y" = "field_y") %>%
+  select(-player_position)
+
+first = first %>%
+  rename("1b_field_x" = "field_x",
+         "1b_field_y" = "field_y") %>%
+  select(-player_position)
+
+second = second %>%
+  rename("2b_field_x" = "field_x",
+         "2b_field_y" = "field_y") %>%
+  select(-player_position)
+
+third = third %>%
+  rename("3b_field_x" = "field_x",
+         "3b_field_y" = "field_y") %>%
+  select(-player_position)
+
+short = short %>%
+  rename("ss_field_x" = "field_x",
+         "ss_field_y" = "field_y") %>%
+  select(-player_position)
+
+left = left %>%
+  rename("lf_field_x" = "field_x",
+         "lf_field_y" = "field_y") %>%
+  select(-player_position)
+
+center = center %>%
+  rename("cf_field_x" = "field_x",
+         "cf_field_y" = "field_y") %>%
+  select(-player_position)
+
+right = right %>%
+  rename("rf_field_x" = "field_x",
+         "rf_field_y" = "field_y") %>%
+  select(-player_position)
+
+batter = batter %>%
+  rename("bat_field_x" = "field_x",
+         "bat_field_y" = "field_y") %>%
+  select(-player_position)
+
+runner1b = runner1b %>%
+  rename("run1b_field_x" = "field_x",
+         "run1b_field_y" = "field_y") %>%
+  select(-player_position)
+
+runner2b = runner2b %>%
+  rename("run2b_field_x" = "field_x",
+         "run2b_field_y" = "field_y") %>%
+  select(-player_position)
+
+runner3b = runner3b %>%
+  rename("run3b_field_x" = "field_x",
+         "run3b_field_y" = "field_y") %>%
+  select(-player_position)
+
+player_pos1 = pitcher %>%
+  full_join(catcher, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(first, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(second, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(third, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(short, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(left, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(center, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(right, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(batter, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(runner1b, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(runner2b, by = c("game_str", "play_id", "timestamp")) %>%
+  full_join(runner3b, by = c("game_str", "play_id", "timestamp"))
+
+
+### END ###
+
+
+
+
+data = player_pos %>% # Using data with positions on all rows
+  left_join(ball_pos, by = c("game_str", "play_id", "timestamp")) %>%
+  left_join(game_events, by = c("game_str", "play_id", "timestamp")) %>%
+  left_join(game_info, by = c("game_str", "play_per_game")) 
+
+data1 = data %>%
+  mutate(team_bat = ifelse(top_bottom_inning == "Top", away_team, home_team)) %>%
+  mutate(team_fld = ifelse(top_bottom_inning == "Top", home_team, away_team)) %>%
+  mutate(player_position = ifelse(player_position == 0, "End of play", player_position),
+         player_position = ifelse(player_position == 1, "P", player_position),
+         player_position = ifelse(player_position == 2, "C", player_position),
+         player_position = ifelse(player_position == 3, "1B", player_position),
+         player_position = ifelse(player_position == 4, "2B", player_position),
+         player_position = ifelse(player_position == 5, "3B", player_position),
+         player_position = ifelse(player_position == 6, "SS", player_position),
+         player_position = ifelse(player_position == 7, "LF", player_position),
+         player_position = ifelse(player_position == 8, "CF", player_position),
+         player_position = ifelse(player_position == 9, "RF", player_position),
+         player_position = ifelse(player_position == 10, "2B", player_position),
+         player_position = ifelse(player_position == 11, "1B Runner", player_position),
+         player_position = ifelse(player_position == 12, "2B Runner", player_position),
+         player_position = ifelse(player_position == 13, "3B Runner", player_position),
+         player_position = ifelse(player_position == 255, "Ball event", player_position))
+
+
+data2 = data1 %>%
+  mutate(event_code = ifelse(event_code == 1, "pitch", event_code),
+         event_code = ifelse(event_code == 2, "ball acquired", event_code),
+         event_code = ifelse(event_code == 3, "throw (ball-in-play, unknown field position)", event_code),
+         event_code = ifelse(event_code == 4, "ball hit in play", event_code),
+         event_code = ifelse(event_code == 5, "end of play", event_code),
+         event_code = ifelse(event_code == 6, "pick-off throw", event_code),
+         event_code = ifelse(event_code == 7, "ball acquired (unknown field position", event_code),
+         event_code = ifelse(event_code == 8, "throw (ball-in-play, unknown field position)", event_code),
+         event_code = ifelse(event_code == 9, "ball deflection", event_code),
+         event_code = ifelse(event_code == 10, "ball deflection off of wall", event_code),
+         event_code = ifelse(event_code == 11, "home run", event_code),
+         event_code = ifelse(event_code == 16, "ball bounce", event_code))
+
+sample = player_pos %>%
+  filter(play_id == 100) 
+
+sample$player_position = as.factor(sample$player_position)
+
+ggplot(sample, aes(field_x, field_y, color = event_player)) +
+  geom_point() +
+  coord_fixed()
+
+
+
+write.csv(data2, file = "Baseball Research/SMT-Data-Challenge/smtDataModifiedTwo.csv")
+
+
+data3 = data2 %>%
+  filter(event_code %in% c("pitch", "ball acquired", "throw (ball-in-play, unknown field position)",
+                         "pick-off throw", "ball hit into play", "end of play", "ball acquired (unknown field position",
+                         "ball deflection", "ball deflection off of wall", "ball bounce", NA))
+
+                        
+
+startSpot = data %>%
+  filter(event_code == "pitch")
+
+pickSpot = data %>%
+  filter(event_code == "ball acquired",
+         player_position != "C")
+
+
+
+startEnd = inner_join(startSpot, pickSpot, by = c("game_str", "play_id", "event_player" = "player_position"))
+
+stEn = startEnd %>%
+  mutate(same = ifelse(event_player == event_player.y, 1, 0)) %>%
+  filter(same == 1) %>%
+  mutate(distance_covered = sqrt((abs(field_x.y - field_x.x))^2 + (abs(field_y.y - field_y.x))^2),
+         timeDiff = (timestamp.y - timestamp.x),
+         speed = distance_covered / timeDiff) %>%
+  arrange(distance_covered)
+
+         
+
+
+
+
+
+
+dataSMT3 = dataSMT2 %>%
+  filter(!is.na(run1b_field_x),
+         !is.na(run1b_field_y)) %>%
+  select(game_str, play_id, timestamp, event_player, event_code, ball_position_x, ball_position_y, ball_position_z, p_field_x, p_field_y, run1b_field_x, run1b_field_y, `1b_field_x`, `1b_field_y`) %>%
+  mutate(leadDist1B = sqrt((run1b_field_x - 63.64)^2 + (run1b_field_y - 63.64)^2))
+
+
+dataSMT4 = dataSMT3 %>%
+  filter(!is.na(event_code))
+
+write_csv(dataSMT4, file = "Baseball Research/SMT-Data-Challenge/smtData4.csv")
