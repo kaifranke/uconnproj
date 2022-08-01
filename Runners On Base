@@ -1,0 +1,81 @@
+library(dplyr)
+library(readr)
+library(rCAT)
+
+ballinplay <- read_csv("ballinplay.csv")
+
+ballinplay2 = ballinplay %>%
+  filter(!is.na(event_code)) %>%
+  mutate(ball_land_x = lead(ball_position_x),
+         ball_land_y = lead(ball_position_y),
+         next_event_code = lead(event_code),
+         player_acquired = lead(event_player),
+         timestamp2 = ifelse(event_code == "ball hit in play", lead(timestamp), NA),
+         lead_ball_z = lead(ball_position_z),
+         time_diff = timestamp2 - timestamp)
+
+
+ballinplay3 = ballinplay2 %>%
+  mutate(ball_pos_x_2 = ifelse(event_code == "ball hit in play", lead(ball_position_x), NA),
+         ball_pos_y_2 = ifelse(event_code == "ball hit in play", lead(ball_position_y), NA),
+         ball_pos_z_2 = ifelse(event_code == "ball hit in play", lead(ball_position_z), NA),
+         ball_distance_xy = sqrt((ball_pos_x_2 - ball_position_x)^2 + (ball_pos_y_2 - ball_position_y)^2),
+         ball_distance_delta = sqrt((ball_distance_xy)^2 + (ball_pos_z_2 - ball_position_z)^2),
+         exit_velo = 681.7 * ball_distance_delta / time_diff,
+         spray_angle = rad2deg(atan(ball_pos_x_2 / abs(ball_pos_y_2))),
+         launch_angle = rad2deg(atan(ball_distance_xy / lead_ball_z))) %>%
+  filter(!is.na(event_code),
+         !is.na(spray_angle)) %>%
+  select(-ball_pos_x_2, -ball_pos_y_2, -ball_pos_z_2) %>%
+  mutate(run1b = ifelse(first_baserunner > 0, 1, 0),
+         run2b = ifelse(second_baserunner > 0, 1, 0),
+         run3b = ifelse(third_baserunner > 0, 1, 0))
+
+
+
+write.csv(ballinplay3, file = "ballinplay3.csv")
+         
+ballinplay3 = readr::read_csv(file = "ballinplay3.csv")
+UconnData = readr::read_csv(file = "smtDataModifiedOne.csv")
+
+
+runnersAdv1 = UconnData %>%
+  filter(event_code %in% c("ball hit in play", "end of play")) %>%
+  select(game_str, play_id, play_per_game, event_code, inning, top_bottom_inning, batter, first_baserunner, second_baserunner, third_baserunner)
+
+
+runnersAdv2 = runnersAdv1 %>%
+  mutate(first_baserunner = ifelse(first_baserunner == 0, NA, first_baserunner),
+         second_baserunner = ifelse(second_baserunner == 0, NA, second_baserunner),
+         third_baserunner = ifelse(third_baserunner == 0, NA, third_baserunner))
+
+      
+
+runnersAdv3 = runnersAdv2 %>%
+  mutate(next1B = ifelse(event_code == "ball hit in play", lead(first_baserunner, n = 2), NA),
+         next2B = ifelse(event_code == "ball hit in play", lead(second_baserunner, n = 2), NA),
+         next3B = ifelse(event_code == "ball hit in play", lead(third_baserunner, n = 2), NA)) %>%
+  filter(event_code == "ball hit in play") %>%
+  mutate(batterHit = ifelse(batter == next1B, "single", NA),
+         batterHit = ifelse(batter == next2B, "double", batterHit),
+         batterHit = ifelse(batter == next3B, "triple", batterHit),
+         advRun = ifelse(batter == next1B | batter == next2B | batter == next3B, "advance", "no advance"),
+         adv1B = ifelse(first_baserunner == first_baserunner, "no advance", NA),
+         adv1B = ifelse(first_baserunner == next2B | first_baserunner == next3B, "advance", adv1B),
+         adv2B = ifelse(second_baserunner == next3B, "advance", NA),
+         adv2B = ifelse(second_baserunner == next2B, "no advance", adv2B))
+
+
+runners = UconnData %>%
+  filter(event_code == "end of play",
+         !is.na(first_baserunner) | !is.na(second_baserunner) | !is.na(third_baserunner)) %>%
+  select(game_str, play_id, play_per_game, event_code, inning, top_bottom_inning, , batter, first_baserunner, second_baserunner, third_baserunner,
+         bat_field_x, bat_field_y, run1b_field_x, run1b_field_y, run2b_field_x, run2b_field_y, run3b_field_x, run3b_field_y) %>%
+  mutate(home_dis_bat = sqrt((bat_field_x - 0)^2 + (bat_field_y - 0)^2),
+         home_dis_1b = sqrt((run1b_field_x - 0)^2 + (run1b_field_y - 0)^2),
+         home_dis_2b = sqrt((run2b_field_x - 0)^2 + (run2b_field_y - 0)^2),
+         home_dis_3b = sqrt((run3b_field_x - 0)^2 + (run3b_field_y - 0)^2))
+
+combo = left_join(runnersAdv3, runners, by = c("game_str", "play_id", "play_per_game", "inning", "top_bottom_inning"))
+
+readr::write_csv(combo, file = "runnersUConn.csv")
